@@ -43,6 +43,7 @@ class Transaction:
         return True
 
 def initialize_caller(name, partner):
+    """Create a new caller based on their NAME and start them waiting for PARTNER."""
     with Transaction() as t:
         client = t.create_record(name)
         t.link_record(client, get(partner))
