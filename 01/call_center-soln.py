@@ -11,6 +11,7 @@ class Transaction:
     def commit(self):
         if self.failed:
             rollback(self.checkpoint)
+        return not self.failed
 
     def create_record(self, name):
         result, failed = create_record(name)
@@ -29,6 +30,7 @@ class Transaction:
     def reset_waiting_time(self, record):
         self.failed |= reset_waiting_time(record)
 
+    # these two functions make this class a "Context Manager"
     def __enter__(self):
         self.failed = false
         self.checkpoint = get_status()
