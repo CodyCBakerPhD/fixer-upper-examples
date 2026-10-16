@@ -23,19 +23,6 @@ T_legacy_modes = Literal[T_legacy_1d_modes, "fit"]
 T_1d_stats = Literal[T_legacy_1d_modes, "sample_variance", "sample_stdev"]
 
 
-STATS: Mapping[T_1d_stats, Callable[[list[float]], float | tuple[float, float]]] = {
-    "mode": lambda d: Counter(d).most_common(1)[0],
-    "range": lambda d: (min(d), max(d)),
-    "mean": statistics.mean,
-    "median": statistics.median,
-    "variance": statistics.pvariance,
-    "sample_variance": statistics.variance,
-    "stdev": statistics.pstdev,
-    "sample_stdev": statistics.stdev,
-    "sum": sum,
-}
-
-
 class OneDStats:
     data: list[float]
     n: int
