@@ -16,6 +16,23 @@ The skill ran for the first time on 2026-10-20, against the two exercise problem
 
 At the requester's direction, these shortcomings are recorded here and not in the report.
 
+## Run time
+
+The first report took 18 min 11 s from the request to PR #1. Of that, 6 min 27 s was spent before the requester changed the scope.
+
+| Phase | From (UTC) | To (UTC) | Duration |
+| --- | --- | --- | --- |
+| Setup: fetch the skills, read the files, check tools, ask for consent | 21:22:57, request | 21:25:02, consent given | 2 min 5 s |
+| Review with the first scope (solutions as subjects) | 21:25:02 | 21:31:29, re-scope message | 6 min 27 s |
+| Review with the corrected scope, through writing the report and opening PR #1 | 21:31:29 | 21:41:08, PR #1 opened | 9 min 39 s |
+| **Total to the first report** | 21:22:57 | 21:41:08 | **18 min 11 s** |
+| Apply all proposals | 21:43:17, request | 21:47:08, PR #2 opened | 3 min 51 s |
+| Drop DUP-2 | 21:47:12, request | 21:48:13, last commit | 1 min 1 s |
+
+- **What the times measure:** wall-clock time from the session's event log and git history. They include model, tool and network time.
+- **Waiting on the requester:** under 30 s in total, for the consent question (asked after 21:24:34, answered at 21:25:02).
+- **Work before the re-scope:** its tool runs and behavior probes were reused afterwards. Its framing, which reviewed the solutions as subjects, was thrown away.
+
 ## Raised by the requester
 
 The requester caught four shortcomings: two about scope, two design problems the report never raised.
