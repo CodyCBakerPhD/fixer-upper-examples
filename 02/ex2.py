@@ -4,82 +4,77 @@
 # mode, "stdev", which computes standard deviations
 
 from collections import Counter
+from typing import Literal, cast
+
+Mode = Literal['sum', 'mean', 'median', 'mode', 'variance', 'range', 'fit']
 
 
 def summarize(
     data: list[float] | list[list[float]],
-    mode,
+    mode: Mode,
     is_sample: bool = True,
-) -> float | tuple[float, float]:
+) -> float | tuple[float, float] | tuple[float | None, int] | None:
     if mode == 'fit':
-        x = [point[0] for point in data]
-        y = [point[1] for point in data]
-    else:
-        x = data
+        return _linear_fit(cast(list[list[float]], data))
 
-    if mode == 'mode':
-        counts = Counter(x)
-
-    n = len(data)
-    total = sum(x)
-
-    if mode in ('mean', 'variance', 'fit'):
-        mean = total / n
-
-    if mode == 'median':
-        x = sorted(x)
-        half = n // 2
-        if n % 2 == 1:
-            median = x[half]
-        else:
-            median = (x[half] + x[half - 1]) / 2
-
-    if mode == 'variance' or mode == 'fit':
-        x_xi_diff = [(item - mean) for item in x]
-        sum_sq = sum(item ** 2 for item in x_xi_diff)
-
-    if mode == 'fit':
-        sum_y = sum(y)
-        y_mean = sum_y / n
-        y_yi_diff = [(item - y_mean) for item in y]
-        # += rather than sum(): sum() of floats is compensated since Python 3.12
-        slope_numerator = 0
-        for dx, dy in zip(x_xi_diff, y_yi_diff):
-            slope_numerator += dy * dx
-        slope = slope_numerator / sum_sq
-
-        sum_x_sq = sum(item ** 2 for item in x)
-        sum_xy = 0
-        for xi, yi in zip(x, y):
-            sum_xy += xi * yi
-        intercept = (sum_y * sum_x_sq - total * sum_xy) / (n * sum_x_sq - (total)**2)
-
-    if mode == 'range':
-        max = x[0]
-        min = x[0]
-        for i in range(len(x)):
-            if x[i] > max:
-                max = x[i]
-            if x[i] < min:
-                min = x[i]
+    x = cast(list[float], data)
+    n = len(x)
+    total = sum(x)  # every 1-d mode starts here, so non-numeric data raises TypeError
 
     if mode == 'sum':
         return total
     if mode == 'mean':
-        return mean
+        return total / n
     if mode == 'median':
-        return median
+        return _median(x)
     if mode == 'mode':
-        if not counts:
-            return (None, 0)    # type: ignore
-        return counts.most_common(1)[0]
+        return _mode(x)
     if mode == 'variance':
+        mean = total / n
+        sum_sq = sum((item - mean) ** 2 for item in x)
         if is_sample:
             return sum_sq / (n - 1)
         return sum_sq / n
-    if mode == 'fit':
-        return (intercept, slope)
     if mode == 'range':
-        return (min, max)
-
+        return (min(x), max(x))
     return None
+
+
+def _median(x: list[float]) -> float:
+    x = sorted(x)
+    half = len(x) // 2
+    if len(x) % 2 == 1:
+        return x[half]
+    return (x[half] + x[half - 1]) / 2
+
+
+def _mode(x: list[float]) -> tuple[float | None, int]:
+    if not x:
+        return (None, 0)
+    return Counter(x).most_common(1)[0]
+
+
+def _linear_fit(points: list[list[float]]) -> tuple[float, float]:
+    x = [point[0] for point in points]
+    y = [point[1] for point in points]
+    n = len(points)
+    sum_x = sum(x)
+    sum_y = sum(y)
+    x_mean = sum_x / n
+    y_mean = sum_y / n
+
+    x_dev = [item - x_mean for item in x]
+    y_dev = [item - y_mean for item in y]
+    sum_sq = sum(d ** 2 for d in x_dev)
+    # += rather than sum(): sum() of floats is compensated since Python 3.12
+    slope_numerator: float = 0
+    for dx, dy in zip(x_dev, y_dev):
+        slope_numerator += dy * dx
+    slope = slope_numerator / sum_sq
+
+    sum_x_sq = sum(item ** 2 for item in x)
+    sum_xy: float = 0
+    for xi, yi in zip(x, y):
+        sum_xy += xi * yi
+    intercept = (sum_y * sum_x_sq - sum_x * sum_xy) / (n * sum_x_sq - sum_x ** 2)
+    return (intercept, slope)
