@@ -25,7 +25,7 @@ def summarize(
     n = len(data)
     total = sum(x)
 
-    if mode == 'mean' or mode == 'variance':
+    if mode in ('mean', 'variance', 'fit'):
         mean = total / n
 
     if mode == 'median':
