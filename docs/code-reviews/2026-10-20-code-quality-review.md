@@ -13,10 +13,13 @@ history of `02/` and `03/` were also read. Every proposed change was first
 trial-applied to a scratch copy outside the repository and checked against
 a behavior snapshot (see [Method & limits](#method--limits)).
 
-**Applied 2026-10-20, at the requester's request:** all 11 findings and the
-NV-1 fix, following the recommended order. They landed in commits e88941e to
-b30afd0, and each finding heading names its commit. NV-2 to NV-5 are not
-applied. Line numbers in this report refer to the reviewed commit, d0ec2d5.
+**Applied 2026-10-20, at the requester's request:** 10 of the 11 findings
+and the NV-1 fix, following the recommended order, in commits e88941e to
+fb8c8c6. Each finding heading names its commit. DUP-2 was applied in
+b30afd0 and then reverted at the author's request in 4fa6ed4. A CI workflow
+that runs ruff and mypy on `02/ex2.py` and `03/ex3.py` keeps the cleanups in
+place (see "To keep these fixed"). NV-2 to NV-5 are not applied. Line
+numbers in this report refer to the reviewed commit, d0ec2d5.
 
 > These files are workshop prompts. Applying the changes below to `ex2.py`
 > or `ex3.py` would replace each exercise with an answer, so read this
@@ -114,7 +117,14 @@ unnecessary.
   identical.
 - **Verification**: snapshot diff is empty (see Method & limits).
 
-#### DUP-2 — `03/ex3.py` is a verbatim copy of `02/ex2-soln.py`, with nothing keeping the two in sync — APPLIED (b30afd0)
+#### DUP-2 — `03/ex3.py` is a verbatim copy of `02/ex2-soln.py`, with nothing keeping the two in sync — REVERTED AT THE AUTHOR'S REQUEST (4fa6ed4)
+
+> **Author's decision (2026-10-20):** the solution scripts' role is out of
+> scope for this review, so a check tying `03/ex3.py` to `02/ex2-soln.py`
+> doesn't apply. The sync check from b30afd0 was removed, along with the
+> CL-4 to CL-6 edits that had been mirrored into `02/ex2-soln.py`. From
+> fb8c8c6 on, the two files' code differs on purpose. A later review should
+> not raise this again.
 
 - **Location**: `03/ex3.py:11-83` and `02/ex2-soln.py:9-81`. jscpd found this
   73-line clone. A `diff` of the two files from the first import onward is
@@ -431,7 +441,7 @@ unnecessary.
    `ruff check --isolated 03/ex3.py` is clean, and the snapshot diff is
    empty (all tried).
 6. **DUP-2's sync check**, added after step 5 so it starts from equal
-   copies.
+   copies. *(Reverted at the author's request; see DUP-2.)*
 
 **To keep these fixed:** run `ruff check` (default rules plus `A`, `PLR0912`,
 `PLR0915`) and `mypy` on these files in CI. ruff's B905 (`zip` without
