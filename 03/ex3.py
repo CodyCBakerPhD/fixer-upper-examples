@@ -8,39 +8,72 @@
 
 # Below is our solution to exercise 2, but we recommend you continue from _your_ solution!
 
-from collections import Counter
 import statistics
+import warnings
+from collections import Counter
+from collections.abc import Callable, Mapping
+from enum import StrEnum
+from typing import Self, cast
 
-from typing import Literal, Callable, Mapping
-
-T_legacy_1d_modes = Literal[
-    "sum", "mean", "median", "mode", "variance", "range", "stdev"
-]
-T_legacy_modes = Literal[T_legacy_1d_modes, "fit"]
-
-T_1d_stats = Literal[T_legacy_1d_modes, "sample_variance", "sample_stdev"]
+Result = float | tuple[float, float]
 
 
-STATS: Mapping[T_1d_stats, Callable[[list[float]], float | tuple[float, float]]] = {
-    "mode": lambda d: Counter(d).most_common(1)[0],
-    "range": lambda d: (min(d), max(d)),
-    "mean": statistics.mean,
-    "median": statistics.median,
-    "variance": statistics.pvariance,
-    "sample_variance": statistics.variance,
-    "stdev": statistics.pstdev,
-    "sample_stdev": statistics.stdev,
-    "sum": sum,
+def _mode(data: list[float]) -> tuple[float, int]:
+    return Counter(data).most_common(1)[0]
+
+
+def _range(data: list[float]) -> tuple[float, float]:
+    return (min(data), max(data))
+
+
+class Stat(StrEnum):
+    """Every 1-d statistic this module computes.
+
+    To add one, add a member: its name, the function that computes it, and
+    optionally the name of the member that summarize() uses instead when
+    is_sample is true.
+    """
+
+    compute: Callable[[list[float]], Result]
+    sample: str | None
+
+    def __new__(
+        cls,
+        value: str,
+        compute: Callable[[list[float]], Result],
+        sample: str | None = None,
+    ) -> Self:
+        member = str.__new__(cls, value)
+        member._value_ = value
+        member.compute = compute
+        member.sample = sample
+        return member
+
+    MODE = "mode", _mode
+    RANGE = "range", _range
+    MEAN = "mean", statistics.mean
+    MEDIAN = "median", statistics.median
+    VARIANCE = "variance", statistics.pvariance, "sample_variance"
+    SAMPLE_VARIANCE = "sample_variance", statistics.variance
+    STDEV = "stdev", statistics.pstdev, "sample_stdev"
+    SAMPLE_STDEV = "sample_stdev", statistics.stdev
+    SUM = "sum", sum
+
+
+STATS: Mapping[str, Callable[[list[float]], Result]] = {
+    stat.value: stat.compute for stat in Stat
 }
+_SAMPLE_NAMES = {stat.value: stat.sample for stat in Stat if stat.sample is not None}
+FIT = "fit"  # the one legacy statistic of points rather than of a series
 
 
-def compute_1d_stat(data: list[float], stat: T_1d_stats) -> float | tuple[float, float]:
+def compute_1d_stat(data: list[float], stat: str) -> Result:
     return STATS[stat](data)
 
 
-def map_legacy_stat_name(stat: T_1d_stats, is_sample: bool) -> T_1d_stats:
-    if is_sample and stat in ("variance", "stdev"):
-        return "sample_" + stat
+def map_legacy_stat_name(stat: str, is_sample: bool) -> str:
+    if is_sample:
+        return _SAMPLE_NAMES.get(stat, stat)
     return stat
 
 
@@ -71,13 +104,32 @@ def linear_fit(data: list[list[float]]) -> tuple[float, float]:
 
 def summarize(
     data: list[float] | list[list[float]],
-    mode: T_legacy_modes,
+    stat: Stat | str | None = None,
     is_sample: bool = True,
-) -> float | tuple[float, float]:
-    if mode == "fit":
-        return linear_fit(data)
+    *,
+    mode: Stat | str | None = None,
+) -> Result:
+    """Compute one statistic of data. `mode` is the deprecated old name of `stat`."""
+    stat = _renamed_stat(stat, mode)
+    if stat == FIT:
+        return linear_fit(cast(list[list[float]], data))
 
     if data and isinstance(data[0], list):
         raise ValueError("2-d data supplied to 1-d statistic")
-    stat = map_legacy_stat_name(mode, is_sample)
-    return compute_1d_stat(data, stat)
+    name = map_legacy_stat_name(stat, is_sample)
+    return compute_1d_stat(cast(list[float], data), name)
+
+
+def _renamed_stat(stat: Stat | str | None, mode: Stat | str | None) -> Stat | str:
+    if mode is None:
+        if stat is None:
+            raise TypeError("summarize() missing required argument: 'stat'")
+        return stat
+    if stat is not None:
+        raise TypeError("summarize() got both 'stat' and its old name 'mode'")
+    warnings.warn(
+        "summarize()'s 'mode' argument is deprecated; use 'stat' instead",
+        DeprecationWarning,
+        stacklevel=3,
+    )
+    return mode
