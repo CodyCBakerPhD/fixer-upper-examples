@@ -6,10 +6,10 @@
 # the different cases, which will continue to annoy users
 
 
-import statistics
 from collections import Counter
-from collections.abc import Callable, Mapping
-from typing import Literal, cast
+import statistics
+
+from typing import Literal, Callable, Mapping
 
 T_legacy_1d_modes = Literal[
     "sum", "mean", "median", "mode", "variance", "range", "stdev"
@@ -37,10 +37,8 @@ def compute_1d_stat(data: list[float], stat: T_1d_stats) -> float | tuple[float,
 
 
 def map_legacy_stat_name(stat: T_1d_stats, is_sample: bool) -> T_1d_stats:
-    if is_sample and stat == "variance":
-        return "sample_variance"
-    if is_sample and stat == "stdev":
-        return "sample_stdev"
+    if is_sample and stat in ("variance", "stdev"):
+        return "sample_" + stat
     return stat
 
 
@@ -75,9 +73,9 @@ def summarize(
     is_sample: bool = True,
 ) -> float | tuple[float, float]:
     if mode == "fit":
-        return linear_fit(cast(list[list[float]], data))
+        return linear_fit(data)
 
     if data and isinstance(data[0], list):
         raise ValueError("2-d data supplied to 1-d statistic")
     stat = map_legacy_stat_name(mode, is_sample)
-    return compute_1d_stat(cast(list[float], data), stat)
+    return compute_1d_stat(data, stat)

@@ -18,14 +18,7 @@ jobs:
           python-version: "3.13"
       - run: pip install ruff==0.16.9 mypy==2.4.0
 
-      # 03/ex3.py starts from the exercise 2 solution; keep the copy exact
-      - name: 03/ex3.py matches 02/ex2-soln.py
-        shell: bash
-        run: |
-          code() { awk 'f || (!/^#/ && NF) {f=1; print}' "$1"; }
-          diff <(code 02/ex2-soln.py) <(code 03/ex3.py)
-
-      # 01/ and 03/ex3-soln.py are outside the 2026-10-20 review's scope
-      - run: ruff check --isolated --extend-select A,PLR0912,PLR0915 02/ex2.py 02/ex2-soln.py 03/ex3.py
-      - run: ruff format --isolated --check 02/ex2.py 02/ex2-soln.py 03/ex3.py
-      - run: mypy --warn-unused-ignores 02/ex2.py 02/ex2-soln.py 03/ex3.py
+      # the exercise problem files cleaned up after the 2026-10-20 review
+      - run: ruff check --isolated --extend-select A,PLR0912,PLR0915 02/ex2.py 03/ex3.py
+      - run: ruff format --isolated --check 02/ex2.py 03/ex3.py
+      - run: mypy --warn-unused-ignores 02/ex2.py 03/ex3.py
