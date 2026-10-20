@@ -16,9 +16,10 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.13"
-      - run: pip install ruff==0.16.9 mypy==2.4.0
+      - run: pip install ruff==0.16.9 mypy==2.4.0 pytest==8.3.5
 
       # the exercise problem files cleaned up after the 2026-10-20 review
-      - run: ruff check --isolated --extend-select A,PLR0912,PLR0915 02/ex2.py 03/ex3.py
-      - run: ruff format --isolated --check 02/ex2.py 03/ex3.py
+      - run: ruff check --isolated --extend-select A,PLR0912,PLR0915 02/ex2.py 03/ex3.py tests
+      - run: ruff format --isolated --check 02/ex2.py 03/ex3.py tests
       - run: mypy --warn-unused-ignores 02/ex2.py 03/ex3.py
+      - run: pytest -q tests
