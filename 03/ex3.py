@@ -9,6 +9,7 @@
 # Below is our solution to exercise 2, but we recommend you continue from _your_ solution!
 
 import statistics
+import warnings
 from collections import Counter
 from collections.abc import Callable, Mapping
 from enum import StrEnum
@@ -103,13 +104,32 @@ def linear_fit(data: list[list[float]]) -> tuple[float, float]:
 
 def summarize(
     data: list[float] | list[list[float]],
-    mode: Stat | str,
+    stat: Stat | str | None = None,
     is_sample: bool = True,
+    *,
+    mode: Stat | str | None = None,
 ) -> Result:
-    if mode == FIT:
+    """Compute one statistic of data. `mode` is the deprecated old name of `stat`."""
+    stat = _renamed_stat(stat, mode)
+    if stat == FIT:
         return linear_fit(cast(list[list[float]], data))
 
     if data and isinstance(data[0], list):
         raise ValueError("2-d data supplied to 1-d statistic")
-    stat = map_legacy_stat_name(mode, is_sample)
-    return compute_1d_stat(cast(list[float], data), stat)
+    name = map_legacy_stat_name(stat, is_sample)
+    return compute_1d_stat(cast(list[float], data), name)
+
+
+def _renamed_stat(stat: Stat | str | None, mode: Stat | str | None) -> Stat | str:
+    if mode is None:
+        if stat is None:
+            raise TypeError("summarize() missing required argument: 'stat'")
+        return stat
+    if stat is not None:
+        raise TypeError("summarize() got both 'stat' and its old name 'mode'")
+    warnings.warn(
+        "summarize()'s 'mode' argument is deprecated; use 'stat' instead",
+        DeprecationWarning,
+        stacklevel=3,
+    )
+    return mode

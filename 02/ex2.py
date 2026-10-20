@@ -3,6 +3,7 @@
 # both make it more interpretable and add support for an additional
 # mode, "stdev", which computes standard deviations
 
+import warnings
 from collections import Counter
 from collections.abc import Callable
 from enum import StrEnum
@@ -82,20 +83,39 @@ FIT = "fit"  # the one statistic of points rather than of a series
 
 def summarize(
     data: list[float] | list[list[float]],
-    mode: Stat | str,
+    stat: Stat | str | None = None,
     is_sample: bool = True,
+    *,
+    mode: Stat | str | None = None,
 ) -> Result | None:
-    if mode == FIT:
+    """Compute one statistic of data. `mode` is the deprecated old name of `stat`."""
+    stat = _renamed_stat(stat, mode)
+    if stat == FIT:
         return _linear_fit(cast(list[list[float]], data))
 
     x = cast(list[float], data)
     sum(x)  # raises TypeError for non-numeric or 2-d data, as summarize always has
-    stat = _BY_NAME.get(mode)
-    if stat is None:
+    chosen = _BY_NAME.get(stat)
+    if chosen is None:
         return None  # unknown names have always returned None
-    if is_sample and stat.sample_compute is not None:
-        return stat.sample_compute(x)
-    return stat.compute(x)
+    if is_sample and chosen.sample_compute is not None:
+        return chosen.sample_compute(x)
+    return chosen.compute(x)
+
+
+def _renamed_stat(stat: Stat | str | None, mode: Stat | str | None) -> Stat | str:
+    if mode is None:
+        if stat is None:
+            raise TypeError("summarize() missing required argument: 'stat'")
+        return stat
+    if stat is not None:
+        raise TypeError("summarize() got both 'stat' and its old name 'mode'")
+    warnings.warn(
+        "summarize()'s 'mode' argument is deprecated; use 'stat' instead",
+        DeprecationWarning,
+        stacklevel=3,
+    )
+    return mode
 
 
 def _linear_fit(points: list[list[float]]) -> tuple[float, float]:
