@@ -18,7 +18,7 @@ At the requester's direction, these shortcomings are recorded here and not in th
 
 ## Run time
 
-The first report took 18 min 11 s from the request to PR #1. Of that, 6 min 27 s was spent before the requester changed the scope.
+The first report took 18 min 11 s from the request to PR #1.
 
 | Phase | From (UTC) | To (UTC) | Duration |
 | --- | --- | --- | --- |
