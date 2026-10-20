@@ -3,6 +3,9 @@
 # both make it more interpretable and add support for an additional
 # mode, "stdev", which computes standard deviations
 
+from collections import Counter
+
+
 def summarize(
     data: list[float] | list[list[float]],
     mode,
@@ -15,12 +18,7 @@ def summarize(
         x = data
 
     if mode == 'mode':
-        counts = {}
-        for item in x:
-            if item in counts:
-                counts[item] += 1
-            else:
-                counts[item] = 1
+        counts = Counter(x)
 
     n = len(data)
     total = sum(x)
@@ -30,31 +28,30 @@ def summarize(
 
     if mode == 'median':
         x = sorted(x)
+        half = n // 2
         if n % 2 == 1:
-            half = n // 2
             median = x[half]
         else:
-            half = n // 2
             median = (x[half] + x[half - 1]) / 2
 
     if mode == 'variance' or mode == 'fit':
         x_xi_diff = [(item - mean) for item in x]
-        x_xi_diff_sq = [item ** 2  for item in x_xi_diff]
-        sum_sq = sum(x_xi_diff_sq)
+        sum_sq = sum(item ** 2 for item in x_xi_diff)
 
     if mode == 'fit':
-        y_mean = sum(y) / n
+        sum_y = sum(y)
+        y_mean = sum_y / n
         y_yi_diff = [(item - y_mean) for item in y]
+        # += rather than sum(): sum() of floats is compensated since Python 3.12
         slope_numerator = 0
-        for i in range(len(x_xi_diff)):
-            slope_numerator += y_yi_diff[i] * x_xi_diff[i]
+        for dx, dy in zip(x_xi_diff, y_yi_diff):
+            slope_numerator += dy * dx
         slope = slope_numerator / sum_sq
 
-        sum_x_sq = sum([item ** 2 for item in x])
-        sum_y = sum(y)
+        sum_x_sq = sum(item ** 2 for item in x)
         sum_xy = 0
-        for i in range(len(x)):
-            sum_xy += x[i] * y[i]
+        for xi, yi in zip(x, y):
+            sum_xy += xi * yi
         intercept = (sum_y * sum_x_sq - total * sum_xy) / (n * sum_x_sq - (total)**2)
 
     if mode == 'range':
@@ -73,13 +70,9 @@ def summarize(
     if mode == 'median':
         return median
     if mode == 'mode':
-        max_count = 0
-        the_mode = None
-        for (k, v) in counts.items():
-            if v > max_count:
-                max_count = v
-                the_mode = k
-        return (the_mode, max_count)    # type: ignore
+        if not counts:
+            return (None, 0)    # type: ignore
+        return counts.most_common(1)[0]
     if mode == 'variance':
         if is_sample:
             return sum_sq / (n - 1)
