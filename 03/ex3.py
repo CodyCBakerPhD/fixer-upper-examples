@@ -11,38 +11,68 @@
 import statistics
 from collections import Counter
 from collections.abc import Callable, Mapping
-from typing import Literal, cast
+from enum import StrEnum
+from typing import Self, cast
 
-T_legacy_1d_modes = Literal[
-    "sum", "mean", "median", "mode", "variance", "range", "stdev"
-]
-T_legacy_modes = Literal[T_legacy_1d_modes, "fit"]
-
-T_1d_stats = Literal[T_legacy_1d_modes, "sample_variance", "sample_stdev"]
+Result = float | tuple[float, float]
 
 
-STATS: Mapping[T_1d_stats, Callable[[list[float]], float | tuple[float, float]]] = {
-    "mode": lambda d: Counter(d).most_common(1)[0],
-    "range": lambda d: (min(d), max(d)),
-    "mean": statistics.mean,
-    "median": statistics.median,
-    "variance": statistics.pvariance,
-    "sample_variance": statistics.variance,
-    "stdev": statistics.pstdev,
-    "sample_stdev": statistics.stdev,
-    "sum": sum,
+def _mode(data: list[float]) -> tuple[float, int]:
+    return Counter(data).most_common(1)[0]
+
+
+def _range(data: list[float]) -> tuple[float, float]:
+    return (min(data), max(data))
+
+
+class Stat(StrEnum):
+    """Every 1-d statistic this module computes.
+
+    To add one, add a member: its name, the function that computes it, and
+    optionally the name of the member that summarize() uses instead when
+    is_sample is true.
+    """
+
+    compute: Callable[[list[float]], Result]
+    sample: str | None
+
+    def __new__(
+        cls,
+        value: str,
+        compute: Callable[[list[float]], Result],
+        sample: str | None = None,
+    ) -> Self:
+        member = str.__new__(cls, value)
+        member._value_ = value
+        member.compute = compute
+        member.sample = sample
+        return member
+
+    MODE = "mode", _mode
+    RANGE = "range", _range
+    MEAN = "mean", statistics.mean
+    MEDIAN = "median", statistics.median
+    VARIANCE = "variance", statistics.pvariance, "sample_variance"
+    SAMPLE_VARIANCE = "sample_variance", statistics.variance
+    STDEV = "stdev", statistics.pstdev, "sample_stdev"
+    SAMPLE_STDEV = "sample_stdev", statistics.stdev
+    SUM = "sum", sum
+
+
+STATS: Mapping[str, Callable[[list[float]], Result]] = {
+    stat.value: stat.compute for stat in Stat
 }
+_SAMPLE_NAMES = {stat.value: stat.sample for stat in Stat if stat.sample is not None}
+FIT = "fit"  # the one legacy statistic of points rather than of a series
 
 
-def compute_1d_stat(data: list[float], stat: T_1d_stats) -> float | tuple[float, float]:
+def compute_1d_stat(data: list[float], stat: str) -> Result:
     return STATS[stat](data)
 
 
-def map_legacy_stat_name(stat: T_1d_stats, is_sample: bool) -> T_1d_stats:
-    if is_sample and stat == "variance":
-        return "sample_variance"
-    if is_sample and stat == "stdev":
-        return "sample_stdev"
+def map_legacy_stat_name(stat: str, is_sample: bool) -> str:
+    if is_sample:
+        return _SAMPLE_NAMES.get(stat, stat)
     return stat
 
 
@@ -73,10 +103,10 @@ def linear_fit(data: list[list[float]]) -> tuple[float, float]:
 
 def summarize(
     data: list[float] | list[list[float]],
-    mode: T_legacy_modes,
+    mode: Stat | str,
     is_sample: bool = True,
-) -> float | tuple[float, float]:
-    if mode == "fit":
+) -> Result:
+    if mode == FIT:
         return linear_fit(cast(list[list[float]], data))
 
     if data and isinstance(data[0], list):

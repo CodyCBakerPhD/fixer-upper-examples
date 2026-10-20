@@ -4,40 +4,15 @@
 # mode, "stdev", which computes standard deviations
 
 from collections import Counter
-from typing import Literal, cast
+from collections.abc import Callable
+from enum import StrEnum
+from typing import Self, cast
 
-Mode = Literal["sum", "mean", "median", "mode", "variance", "range", "fit"]
+Result = float | tuple[float, float] | tuple[float | None, int]
 
 
-def summarize(
-    data: list[float] | list[list[float]],
-    mode: Mode,
-    is_sample: bool = True,
-) -> float | tuple[float, float] | tuple[float | None, int] | None:
-    if mode == "fit":
-        return _linear_fit(cast(list[list[float]], data))
-
-    x = cast(list[float], data)
-    n = len(x)
-    total = sum(x)  # every 1-d mode starts here, so non-numeric data raises TypeError
-
-    if mode == "sum":
-        return total
-    if mode == "mean":
-        return total / n
-    if mode == "median":
-        return _median(x)
-    if mode == "mode":
-        return _mode(x)
-    if mode == "variance":
-        mean = total / n
-        sum_sq = sum((item - mean) ** 2 for item in x)
-        if is_sample:
-            return sum_sq / (n - 1)
-        return sum_sq / n
-    if mode == "range":
-        return (min(x), max(x))
-    return None
+def _mean(x: list[float]) -> float:
+    return sum(x) / len(x)
 
 
 def _median(x: list[float]) -> float:
@@ -52,6 +27,75 @@ def _mode(x: list[float]) -> tuple[float | None, int]:
     if not x:
         return (None, 0)
     return Counter(x).most_common(1)[0]
+
+
+def _range(x: list[float]) -> tuple[float, float]:
+    return (min(x), max(x))
+
+
+def _sum_of_squares(x: list[float]) -> float:
+    mean = sum(x) / len(x)
+    return sum((item - mean) ** 2 for item in x)
+
+
+def _variance(x: list[float]) -> float:
+    return _sum_of_squares(x) / len(x)
+
+
+def _sample_variance(x: list[float]) -> float:
+    return _sum_of_squares(x) / (len(x) - 1)
+
+
+class Stat(StrEnum):
+    """Every statistic of a series that summarize() computes.
+
+    To add one, add a member: its name, the function that computes it, and
+    optionally the function to use instead when is_sample is true.
+    """
+
+    compute: Callable[[list[float]], Result]
+    sample_compute: Callable[[list[float]], Result] | None
+
+    def __new__(
+        cls,
+        value: str,
+        compute: Callable[[list[float]], Result],
+        sample_compute: Callable[[list[float]], Result] | None = None,
+    ) -> Self:
+        member = str.__new__(cls, value)
+        member._value_ = value
+        member.compute = compute
+        member.sample_compute = sample_compute
+        return member
+
+    SUM = "sum", sum
+    MEAN = "mean", _mean
+    MEDIAN = "median", _median
+    MODE = "mode", _mode
+    VARIANCE = "variance", _variance, _sample_variance
+    RANGE = "range", _range
+
+
+_BY_NAME = {stat.value: stat for stat in Stat}
+FIT = "fit"  # the one statistic of points rather than of a series
+
+
+def summarize(
+    data: list[float] | list[list[float]],
+    mode: Stat | str,
+    is_sample: bool = True,
+) -> Result | None:
+    if mode == FIT:
+        return _linear_fit(cast(list[list[float]], data))
+
+    x = cast(list[float], data)
+    sum(x)  # raises TypeError for non-numeric or 2-d data, as summarize always has
+    stat = _BY_NAME.get(mode)
+    if stat is None:
+        return None  # unknown names have always returned None
+    if is_sample and stat.sample_compute is not None:
+        return stat.sample_compute(x)
+    return stat.compute(x)
 
 
 def _linear_fit(points: list[list[float]]) -> tuple[float, float]:
