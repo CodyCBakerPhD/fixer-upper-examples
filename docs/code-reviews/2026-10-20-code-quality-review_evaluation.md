@@ -1,4 +1,4 @@
-# Observed shortcomings: first run of review-repo-code-quality
+# Code quality review — fixer-upper-examples (exercises 02 and 03) — 2026-10-20 (skill evaluation)
 
 2026-10-20 · companion to [the code quality review](2026-10-20-code-quality-review.md)
 
