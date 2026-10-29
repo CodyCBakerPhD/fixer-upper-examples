@@ -9,17 +9,9 @@ Scope: the two exercise **problem** files, `02/ex2.py` (92 lines) and
 provided solutions (`02/ex2-soln.py`, `03/ex3-soln.py`) are not review
 subjects. They are used only in [Comparison with the provided solutions](#comparison-with-the-provided-solutions),
 at the requester's direction. `01/` is out of scope. `README.md` and the git
-history of `02/` and `03/` were also read. Every proposed change was first
-trial-applied to a scratch copy outside the repository and checked against
-a behavior snapshot (see [Method & limits](#method--limits)).
-
-**Applied 2026-10-20, at the requester's request:** 10 of the 11 findings
-and the NV-1 fix, following the recommended order, in commits e88941e to
-fb8c8c6. Each finding heading names its commit. DUP-2 was applied in
-b30afd0 and then reverted at the author's request in 4fa6ed4. A CI workflow
-that runs ruff and mypy on `02/ex2.py` and `03/ex3.py` keeps the cleanups in
-place (see "To keep these fixed"). NV-2 to NV-5 are not applied. Line
-numbers in this report refer to the reviewed commit, d0ec2d5.
+history of `02/` and `03/` were also read. No changes have been applied.
+Every proposed change was trial-applied to a scratch copy outside the
+repository and checked against a behavior snapshot (see [Method & limits](#method--limits)).
 
 > These files are workshop prompts. Applying the changes below to `ex2.py`
 > or `ex3.py` would replace each exercise with an answer, so read this
@@ -82,10 +74,10 @@ There are no security-sensitive findings and nothing was withheld.
 | Category | High confidence | Medium | Low | Total |
 |---|---:|---:|---:|---:|
 | Dead code | 0 | 0 | 0 | 0 |
-| Duplication | 2 | 0 | 0 | 2 |
+| Duplication | 1 | 0 | 0 | 1 |
 | Consolidation | 1 | 2 | 0 | 3 |
 | Cleanup | 6 | 0 | 0 | 6 |
-| **Total** | **9** | **2** | **0** | **11** |
+| **Total** | **8** | **2** | **0** | **10** |
 
 There are also 5 Needs verification items.
 Confidence ratings are about whether a change is safe, not whether the finding is real.
@@ -104,7 +96,7 @@ unnecessary.
 
 ### Duplication
 
-#### DUP-1 — Two values computed twice in `ex2.py` — APPLIED (7ef06c4)
+#### DUP-1 — Two values computed twice in `ex2.py`
 
 - **Location**: `02/ex2.py:34` and `37` (`half = n // 2` in both branches of the median `if`), and `02/ex2.py:46` and `54` (`sum(y)` in `y_mean = sum(y) / n` and again in `sum_y = sum(y)`)
 - **Issue**: Both copies are identical expressions over unchanged inputs.
@@ -117,40 +109,9 @@ unnecessary.
   identical.
 - **Verification**: snapshot diff is empty (see Method & limits).
 
-#### DUP-2 — `03/ex3.py` is a verbatim copy of `02/ex2-soln.py`, with nothing keeping the two in sync — REVERTED AT THE AUTHOR'S REQUEST (4fa6ed4)
-
-> **Author's decision (2026-10-20):** the solution scripts' role is out of
-> scope for this review, so a check tying `03/ex3.py` to `02/ex2-soln.py`
-> doesn't apply. The sync check from b30afd0 was removed, along with the
-> CL-4 to CL-6 edits that had been mirrored into `02/ex2-soln.py`. From
-> fb8c8c6 on, the two files' code differs on purpose. A later review should
-> not raise this again.
-
-- **Location**: `03/ex3.py:11-83` and `02/ex2-soln.py:9-81`. jscpd found this
-  73-line clone. A `diff` of the two files from the first import onward is
-  empty.
-- **Issue**: The copy is intentional (`03/ex3.py:9`: "Below is our solution to
-  exercise 2…"). Even so, each `ex3.py` cleanup below (CL-4, CL-5, CL-6) applies
-  equally to `ex2-soln.py`. If only one copy gets fixed, exercise 3 starts from
-  a different "solution" than the one shown for exercise 2, and nothing in the
-  repository would notice.
-- **Proposed change**: Keep the copy, since each exercise folder has to stand
-  alone. Add a check that fails when the two diverge, as a CI step or a
-  pre-commit hook:
-  ```sh
-  code() { awk 'f || (!/^#/ && NF) {f=1; print}' "$1"; }   # drop the header comment block
-  diff <(code 02/ex2-soln.py) <(code 03/ex3.py)
-  ```
-  If CI is unwanted, add a one-line note at the top of `02/ex2-soln.py`:
-  "copied into 03/ex3.py — update both".
-- **Confidence it's safe**: **High**. It adds a check and touches no exercise code.
-- **Verification**: The command exits 0 on the current tree and also after
-  CL-6 rewrites the first import line (tried). It exits 1 when one copy is
-  changed by a single character (tried).
-
 ### Consolidation
 
-#### CON-1 — `ex2.py` spreads every mode across a "compute" block and a "return" block — APPLIED (b3c403c)
+#### CON-1 — `ex2.py` spreads every mode across a "compute" block and a "return" block
 
 - **Location**: `02/ex2.py:11-92`. For example, `variance` runs at `28-29`,
   `40-43` and `83-86`. `fit` runs at `11-13`, `40-43`, `45-58` and `87-88`.
@@ -180,7 +141,7 @@ unnecessary.
     `sum()` now runs before the counting.
 - **Verification**: snapshot diff against the NV-1 baseline shows only those 10 lines; `ruff check --isolated --select PLR0912,PLR0915,PLR1714 02/ex2.py` is clean.
 
-#### CON-2 — `ex2.py` hand-rolls `collections.Counter` and `most_common` — APPLIED (7ef06c4)
+#### CON-2 — `ex2.py` hand-rolls `collections.Counter` and `most_common`
 
 - **Location**: `02/ex2.py:17-23` (counting loop) and `02/ex2.py:76-81` (finding the most common value)
 - **Issue**: Thirteen lines across two blocks reimplement
@@ -202,7 +163,7 @@ unnecessary.
   `[5.0, 1.0, 3.0]` (the first value wins) and the NaN input.
 - **Verification**: snapshot diff is empty.
 
-#### CON-3 — `ex2.py` hand-rolls `min()`/`max()` and shadows both builtins — APPLIED (b3c403c)
+#### CON-3 — `ex2.py` hand-rolls `min()`/`max()` and shadows both builtins
 
 - **Location**: `02/ex2.py:60-67`
 - **Issue**: An index loop (`for i in range(len(x))`) reimplements
@@ -222,7 +183,7 @@ unnecessary.
 
 ### Cleanup
 
-#### CL-1 — `ex2.py`'s annotations don't describe what `summarize` takes or returns — APPLIED (b3c403c)
+#### CL-1 — `ex2.py`'s annotations don't describe what `summarize` takes or returns
 
 - **Location**: `02/ex2.py:8` (`mode` is unannotated), `02/ex2.py:10` (return annotation), `82` (`# type: ignore`), `92` (`return None`)
 - **Issue**: `-> float | tuple[float, float]` leaves out `None` (unknown
@@ -243,7 +204,7 @@ unnecessary.
   `--warn-unused-ignores`.
 - **Verification**: `mypy --warn-unused-ignores 02/ex2.py` reports no errors, and the snapshot is unchanged.
 
-#### CL-2 — `ex2.py` loops by index and builds throwaway lists — APPLIED (7ef06c4)
+#### CL-2 — `ex2.py` loops by index and builds throwaway lists
 
 - **Location**: `02/ex2.py:48-50` and `55-57` (`for i in range(len(...))`), `42-43` (single-use `x_xi_diff_sq` list), `53` (`sum([... for ...])`)
 - **Issue**: Index loops over two parallel lists are what `zip` is for. The
@@ -262,7 +223,7 @@ unnecessary.
   built from the same points. In the trial, the snapshot was identical.
 - **Verification**: snapshot diff is empty.
 
-#### CL-3 — `ex2.py` is not formatted — APPLIED (bf2d169)
+#### CL-3 — `ex2.py` is not formatted
 
 - **Location**: `02/ex2.py` throughout. Examples are single quotes, the double space at `42` (`item ** 2  for`) and the parenthesised `(total)**2` at `58`.
 - **Issue**: `ruff format --diff` would change 38 lines. `ex3.py`
@@ -274,7 +235,7 @@ unnecessary.
   snapshot identical.
 - **Verification**: `ruff format --isolated --check 02/ex2.py` passes and the snapshot is unchanged.
 
-#### CL-4 — `ex3.py`'s `map_legacy_stat_name` returns a `str` where it promises a `Literal` — APPLIED (fb8c8c6)
+#### CL-4 — `ex3.py`'s `map_legacy_stat_name` returns a `str` where it promises a `Literal`
 
 - **Location**: `03/ex3.py:41-44`
 - **Issue**: `return "sample_" + stat` produces a `str`, but the function is
@@ -296,7 +257,7 @@ unnecessary.
   every input. In the trial, mypy passed and the snapshot was identical.
 - **Verification**: `mypy 03/ex3.py` reports no `return-value` error, and the snapshot is unchanged.
 
-#### CL-5 — `ex3.py`'s `summarize` never narrows `data` — APPLIED (fb8c8c6)
+#### CL-5 — `ex3.py`'s `summarize` never narrows `data`
 
 - **Location**: `03/ex3.py:78`, `83`
 - **Issue**: `data: list[float] | list[list[float]]` is passed straight to
@@ -310,7 +271,7 @@ unnecessary.
   trial, mypy printed "Success" and the snapshot was identical.
 - **Verification**: mypy as above, and the snapshot is unchanged.
 
-#### CL-6 — `ex3.py`'s import block is unsorted and uses deprecated `typing` aliases — APPLIED (fb8c8c6)
+#### CL-6 — `ex3.py`'s import block is unsorted and uses deprecated `typing` aliases
 
 - **Location**: `03/ex3.py:11-14`
 - **Issue**: ruff (default rules) reports I001 (unsorted import block) and
@@ -325,7 +286,7 @@ unnecessary.
 
 ## Needs verification
 
-#### NV-1 — `02/ex2.py` crashes in `fit` mode — APPLIED (e88941e)
+#### NV-1 — `02/ex2.py` crashes in `fit` mode
 
 - **Location**: `02/ex2.py:28-29` (`mean` is assigned only for `mean` and `variance`) and `02/ex2.py:41` (`fit` reads `mean`)
 - **Observation** (observed on Python 3.13):
@@ -436,12 +397,9 @@ unnecessary.
    `ruff check --isolated --select PLR0912,PLR0915,PLR1714,PLR1730,A001 02/ex2.py`
    is clean.
 4. **`ex2.py`, CL-3** (`ruff format`). Verification: `ruff format --check`, snapshot.
-5. **`ex3.py`**: CL-4, CL-5 and CL-6. If DUP-2's sync is wanted, apply the
-   same three to `02/ex2-soln.py`. Verification: `mypy 03/ex3.py` succeeds,
+5. **`ex3.py`**: CL-4, CL-5 and CL-6. Verification: `mypy 03/ex3.py` succeeds,
    `ruff check --isolated 03/ex3.py` is clean, and the snapshot diff is
    empty (all tried).
-6. **DUP-2's sync check**, added after step 5 so it starts from equal
-   copies. *(Reverted at the author's request; see DUP-2.)*
 
 **To keep these fixed:** run `ruff check` (default rules plus `A`, `PLR0912`,
 `PLR0915`) and `mypy` on these files in CI. ruff's B905 (`zip` without
@@ -589,8 +547,10 @@ differently, in order of impact:
   - mypy 2.4.0 with default settings and `--warn-unused-ignores`.
   - jscpd 5.4.2 via `npx --yes jscpd@latest`, run from a scratch directory
     over `02/` and `03/` with `--min-lines 6 --min-tokens 50`. It found 2
-    clones (84 lines, 19.7%). The larger is DUP-2. The smaller (11 lines)
-    is between the two solution files, which are out of scope.
+    clones (84 lines, 19.7%), and both involve a solution file: `03/ex3.py`
+    starts as a copy of `02/ex2-soln.py` (73 lines, by design, see
+    `03/ex3.py:9`), and the two solution files share 11 lines. The solution
+    files are out of scope, so neither clone is a finding.
   - The analyze-duplicates `generate-report.py` helper fails on jscpd 5.x
     JSON (`AttributeError` at line 71, because `sources` is now a count),
     so clusters were read from the raw JSON and checked with `diff`.
