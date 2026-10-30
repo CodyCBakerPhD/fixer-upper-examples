@@ -74,10 +74,10 @@ There are no security-sensitive findings and nothing was withheld.
 | Category | High confidence | Medium | Low | Total |
 |---|---:|---:|---:|---:|
 | Dead code | 0 | 0 | 0 | 0 |
-| Duplication | 2 | 0 | 0 | 2 |
+| Duplication | 1 | 0 | 0 | 1 |
 | Consolidation | 1 | 2 | 0 | 3 |
 | Cleanup | 6 | 0 | 0 | 6 |
-| **Total** | **9** | **2** | **0** | **11** |
+| **Total** | **8** | **2** | **0** | **10** |
 
 There are also 5 Needs verification items.
 Confidence ratings are about whether a change is safe, not whether the finding is real.
@@ -108,30 +108,6 @@ unnecessary.
   reassigns `n` or `y` between the copies. In the trial, the snapshot was
   identical.
 - **Verification**: snapshot diff is empty (see Method & limits).
-
-#### DUP-2 — `03/ex3.py` is a verbatim copy of `02/ex2-soln.py`, with nothing keeping the two in sync
-
-- **Location**: `03/ex3.py:11-83` and `02/ex2-soln.py:9-81`. jscpd found this
-  73-line clone. A `diff` of the two files from the first import onward is
-  empty.
-- **Issue**: The copy is intentional (`03/ex3.py:9`: "Below is our solution to
-  exercise 2…"). Even so, each `ex3.py` cleanup below (CL-4, CL-5, CL-6) applies
-  equally to `ex2-soln.py`. If only one copy gets fixed, exercise 3 starts from
-  a different "solution" than the one shown for exercise 2, and nothing in the
-  repository would notice.
-- **Proposed change**: Keep the copy, since each exercise folder has to stand
-  alone. Add a check that fails when the two diverge, as a CI step or a
-  pre-commit hook:
-  ```sh
-  code() { awk 'f || (!/^#/ && NF) {f=1; print}' "$1"; }   # drop the header comment block
-  diff <(code 02/ex2-soln.py) <(code 03/ex3.py)
-  ```
-  If CI is unwanted, add a one-line note at the top of `02/ex2-soln.py`:
-  "copied into 03/ex3.py — update both".
-- **Confidence it's safe**: **High**. It adds a check and touches no exercise code.
-- **Verification**: The command exits 0 on the current tree and also after
-  CL-6 rewrites the first import line (tried). It exits 1 when one copy is
-  changed by a single character (tried).
 
 ### Consolidation
 
@@ -421,12 +397,9 @@ unnecessary.
    `ruff check --isolated --select PLR0912,PLR0915,PLR1714,PLR1730,A001 02/ex2.py`
    is clean.
 4. **`ex2.py`, CL-3** (`ruff format`). Verification: `ruff format --check`, snapshot.
-5. **`ex3.py`**: CL-4, CL-5 and CL-6. If DUP-2's sync is wanted, apply the
-   same three to `02/ex2-soln.py`. Verification: `mypy 03/ex3.py` succeeds,
+5. **`ex3.py`**: CL-4, CL-5 and CL-6. Verification: `mypy 03/ex3.py` succeeds,
    `ruff check --isolated 03/ex3.py` is clean, and the snapshot diff is
    empty (all tried).
-6. **DUP-2's sync check**, added after step 5 so it starts from equal
-   copies.
 
 **To keep these fixed:** run `ruff check` (default rules plus `A`, `PLR0912`,
 `PLR0915`) and `mypy` on these files in CI. ruff's B905 (`zip` without
@@ -574,8 +547,10 @@ differently, in order of impact:
   - mypy 2.4.0 with default settings and `--warn-unused-ignores`.
   - jscpd 5.4.2 via `npx --yes jscpd@latest`, run from a scratch directory
     over `02/` and `03/` with `--min-lines 6 --min-tokens 50`. It found 2
-    clones (84 lines, 19.7%). The larger is DUP-2. The smaller (11 lines)
-    is between the two solution files, which are out of scope.
+    clones (84 lines, 19.7%), and both involve a solution file: `03/ex3.py`
+    starts as a copy of `02/ex2-soln.py` (73 lines, by design, see
+    `03/ex3.py:9`), and the two solution files share 11 lines. The solution
+    files are out of scope, so neither clone is a finding.
   - The analyze-duplicates `generate-report.py` helper fails on jscpd 5.x
     JSON (`AttributeError` at line 71, because `sources` is now a count),
     so clusters were read from the raw JSON and checked with `diff`.
