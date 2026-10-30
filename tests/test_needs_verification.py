@@ -1,35 +1,15 @@
-"""The "Needs verification" items of the 2026-10-20 code quality review, as tests.
+"""The "Needs verification" items of the 2026-10-20 code quality review, as resolved.
 
-See docs/code-reviews/2026-10-20-code-quality-review.md. NV-1 is fixed and is
-tested as such. NV-2 has an unambiguous right answer, so it is a strict xfail
-that fails once the intercept is fixed. NV-3 to NV-5 wait on a maintainer's
-decision, so these tests pin today's behavior: changing it should be deliberate.
+See docs/code-reviews/2026-10-20-code-quality-review.md. Each test states the
+behavior the soln2 code in 02/ex2.py and 03/ex3.py settled on for one item.
 """
 
-import importlib.util
-from pathlib import Path
-from statistics import StatisticsError
-from types import ModuleType
-
 import pytest
-
-ROOT = Path(__file__).resolve().parents[1]
-
-
-def _load(name: str, path: str) -> ModuleType:
-    spec = importlib.util.spec_from_file_location(name, ROOT / path)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-ex2 = _load("ex2", "02/ex2.py")
-ex3 = _load("ex3", "03/ex3.py")
-both = pytest.mark.parametrize("module", [ex2, ex3], ids=["ex2", "ex3"])
+from exercises import both, ex2, ex3
 
 POINTS = [[1.0, 2.0], [2.0, 4.1], [3.0, 5.9], [4.0, 8.2]]
-ONE_D_STATS = ["sum", "mean", "median", "mode", "variance", "range"]
+TUPLE_POINTS = [(1.0, 2.0), (2.0, 4.0), (4.0, 4.0)]
+SERIES_STATS = ["sum", "mean", "median", "mode", "range", "variance", "stdev"]
 
 
 def _line(offset: float) -> list[list[float]]:
@@ -37,162 +17,132 @@ def _line(offset: float) -> list[list[float]]:
     return [[offset + i, 3.0 + 2.0 * i] for i in range(10)]
 
 
-# NV-1: fit used to raise UnboundLocalError in 02/ex2.py (fixed in e88941e)
+# NV-1: fit used to raise UnboundLocalError in 02/ex2.py
 
 
 @both
 def test_nv1_fit_returns_intercept_and_slope(module):
-    intercept, slope = module.summarize(POINTS, "fit")
-    assert intercept == pytest.approx(-0.05)
-    assert slope == pytest.approx(2.04)
+    assert module.summarize(POINTS, "fit") == pytest.approx((-0.05, 2.04))
 
 
-# NV-2: the closed-form intercept loses precision when x is far from 0
+# NV-2: the intercept used to lose precision when x is far from 0
 
 
 @both
-@pytest.mark.parametrize("offset", [0.0, 1e4, 1e6])
-def test_nv2_fit_is_exact_near_zero(module, offset):
+@pytest.mark.parametrize("offset", [0.0, 1e4, 1e6, 1e8])
+def test_nv2_fit_is_exact_at_any_offset(module, offset):
     intercept, slope = module.summarize(_line(offset), "fit")
     assert intercept == pytest.approx(3.0 - 2.0 * offset)
     assert slope == pytest.approx(2.0)
 
 
-@both
-def test_nv2_slope_is_exact_far_from_zero(module):
-    _, slope = module.summarize(_line(1e8), "fit")
-    assert slope == pytest.approx(2.0)
+# NV-3: malformed input is rejected explicitly, never answered wrongly
 
 
 @both
-@pytest.mark.xfail(
-    strict=True, reason="NV-2: intercept is 7.4% off at x ~ 1e8; decision pending"
-)
-def test_nv2_intercept_is_exact_far_from_zero(module):
-    intercept, _ = module.summarize(_line(1e8), "fit")
-    assert intercept == pytest.approx(3.0 - 2.0 * 1e8)
+@pytest.mark.parametrize("stat", ["bogus", "STDEV", ""])
+def test_nv3_unknown_stats_raise_value_error(module, stat):
+    with pytest.raises(ValueError, match="unknown statistic .*expected one of"):
+        module.summarize([1.0, 2.0], stat)
 
 
-# NV-3: malformed input is rejected by accident, or not at all
+@both
+@pytest.mark.parametrize("stat", SERIES_STATS)
+@pytest.mark.parametrize("data", [["a", "b"], [1.0, "a"], [1.0, None]])
+def test_nv3_non_numbers_raise_type_error(module, stat, data):
+    with pytest.raises(TypeError, match="expected a number"):
+        module.summarize(data, stat)
 
 
-@pytest.mark.parametrize("stat", ONE_D_STATS)
-@pytest.mark.parametrize("data", [["a", "b"], POINTS], ids=["strings", "points"])
-def test_nv3_ex2_rejects_bad_data_only_because_it_sums_it(stat, data):
-    with pytest.raises(TypeError, match="unsupported operand"):
-        ex2.summarize(data, stat)
+@pytest.mark.parametrize("stat", SERIES_STATS)
+@pytest.mark.parametrize("points", [POINTS, TUPLE_POINTS], ids=["lists", "tuples"])
+def test_nv3_ex2_rejects_points_for_series_stats(stat, points):
+    with pytest.raises(TypeError, match=r"not \(x, y\) points"):
+        ex2.summarize(points, stat)
 
 
-@pytest.mark.parametrize("stat", ["stdev", "bogus"])
-def test_nv3_ex2_returns_none_for_unknown_stats(stat):
-    # "stdev" is the statistic exercise 2 asks participants to add
-    assert ex2.summarize([1.0, 2.0], stat) is None
+@pytest.mark.parametrize("stat", SERIES_STATS)
+@pytest.mark.parametrize("points", [POINTS, TUPLE_POINTS], ids=["lists", "tuples"])
+def test_nv3_ex3_describes_the_y_values_of_points(stat, points):
+    ys = [y for _, y in points]
+    assert ex3.summarize(points, stat) == ex3.summarize(ys, stat)
 
 
-@pytest.mark.parametrize("stat", ONE_D_STATS)
-def test_nv3_ex3_rejects_list_points(stat):
-    with pytest.raises(ValueError, match="2-d data supplied to 1-d statistic"):
-        ex3.summarize(POINTS, stat)
-
-
-def test_nv3_ex3_lets_tuple_points_through():
-    points = [(1.0, 2.0), (2.0, 4.0)]
-    assert ex3.summarize(points, "range") == ((1.0, 2.0), (2.0, 4.0))
-    assert ex3.summarize(points, "mode") == ((1.0, 2.0), 1)
-    with pytest.raises(TypeError):
-        ex3.summarize(points, "mean")
-
-
-def test_nv3_ex3_raises_key_error_for_unknown_stats():
-    with pytest.raises(KeyError):
-        ex3.summarize([1.0, 2.0], "bogus")
-
-
-# NV-4: empty and one-element inputs fail differently in each mode.
-# 02/ex2.py's empty "range" raised IndexError before b3c403c switched to min()/max().
-
-TOO_SHORT = {
-    (ex2, "empty"): {
-        "sum": 0,
-        "mean": ZeroDivisionError,
-        "median": IndexError,
-        "mode": (None, 0),
-        "variance": ZeroDivisionError,
-        "range": ValueError,
-    },
-    (ex3, "empty"): {
-        "sum": 0,
-        "mean": StatisticsError,
-        "median": StatisticsError,
-        "mode": IndexError,
-        "variance": StatisticsError,
-        "range": ValueError,
-    },
-    (ex2, "one"): {
-        "sum": 7.0,
-        "mean": 7.0,
-        "median": 7.0,
-        "mode": (7.0, 1),
-        "variance": ZeroDivisionError,
-        "range": (7.0, 7.0),
-    },
-    (ex3, "one"): {
-        "sum": 7.0,
-        "mean": 7.0,
-        "median": 7.0,
-        "mode": (7.0, 1),
-        "variance": StatisticsError,
-        "range": (7.0, 7.0),
-    },
-}
-
-
+@both
 @pytest.mark.parametrize(
-    ("module", "size", "stat", "expected"),
+    "data",
+    [[1.0, 2.0], ["ab", "cd"], [[1.0, 2.0, 3.0]], [[1.0, 2.0], 3.0]],
+    ids=["series", "strings", "triple", "mixed"],
+)
+def test_nv3_fit_rejects_data_that_is_not_points(module, data):
+    with pytest.raises(TypeError):
+        module.summarize(data, "fit")
+
+
+# NV-4: too-short input raises ValueError, the same way for every statistic
+
+
+@both
+@pytest.mark.parametrize(
+    ("stat", "is_sample", "too_short"),
     [
-        pytest.param(
-            module, size, stat, expected, id=f"{module.__name__}-{size}-{stat}"
-        )
-        for (module, size), outcomes in TOO_SHORT.items()
-        for stat, expected in outcomes.items()
+        ("mean", True, []),
+        ("median", True, []),
+        ("mode", True, []),
+        ("range", True, []),
+        ("variance", False, []),
+        ("variance", True, [7.0]),
+        ("stdev", False, []),
+        ("stdev", True, [7.0]),
     ],
 )
-def test_nv4_too_short_input(module, size, stat, expected):
-    data = [] if size == "empty" else [7.0]
-    if isinstance(expected, type) and issubclass(expected, Exception):
-        with pytest.raises(expected):
-            module.summarize(data, stat)
-    else:
-        assert module.summarize(data, stat) == expected
+def test_nv4_too_short_input_raises_value_error(module, stat, is_sample, too_short):
+    with pytest.raises(ValueError, match="needs at least"):
+        module.summarize(too_short, stat, is_sample)
+    module.summarize([*too_short, 8.0], stat, is_sample)  # one more value is enough
 
 
 @both
-def test_nv4_fit_of_one_point_divides_by_zero(module):
-    with pytest.raises(ZeroDivisionError):
-        module.summarize([[5.0, 1.0]], "fit")
-
-
-# NV-5: the return shape depends on the statistic, and is_sample only sometimes matters
+def test_nv4_sum_of_nothing_is_zero(module):
+    assert module.summarize([], "sum") == 0
 
 
 @both
-def test_nv5_return_shape_depends_on_the_stat(module):
+@pytest.mark.parametrize(
+    "points",
+    [[], [[5.0, 1.0]], [[5.0, 1.0], [5.0, 2.0]]],
+    ids=["none", "one", "same-x"],
+)
+def test_nv4_fit_needs_two_different_x_values(module, points):
+    with pytest.raises(ValueError, match="different x values"):
+        module.summarize(points, "fit")
+
+
+# NV-5: results have named fields, and is_sample only affects variance and stdev
+
+
+@both
+def test_nv5_results_have_named_fields(module):
     data = [1.0, 2.0, 2.0, 5.0]
+    assert module.summarize(data, "range") == module.Range(low=1.0, high=5.0)
+    assert module.summarize(data, "mode") == module.MostCommon(value=2.0, frequency=2)
+    fit = module.summarize(POINTS, "fit")
+    assert isinstance(fit, module.LinearFit)
+    assert (fit.intercept, fit.slope) == pytest.approx((-0.05, 2.04))
     assert isinstance(module.summarize(data, "mean"), float)
-    assert module.summarize(data, "range") == (1.0, 5.0)  # (low, high)
-    assert module.summarize(data, "mode") == (2.0, 2)  # (value, count)
-    assert len(module.summarize(POINTS, "fit")) == 2  # (intercept, slope)
 
 
 @both
 @pytest.mark.parametrize("stat", ["sum", "mean", "median", "mode", "range"])
-def test_nv5_is_sample_is_ignored_except_for_variance(module, stat):
+def test_nv5_is_sample_only_matters_for_variance_and_stdev(module, stat):
     data = [1.0, 2.0, 2.0, 5.0]
     assert module.summarize(data, stat, True) == module.summarize(data, stat, False)
 
 
 @both
-def test_nv5_is_sample_changes_variance(module):
+def test_nv5_is_sample_picks_the_sample_or_population_form(module):
     data = [1.0, 2.0, 2.0, 5.0]
     assert module.summarize(data, "variance", True) == pytest.approx(3.0)
     assert module.summarize(data, "variance", False) == pytest.approx(2.25)
+    assert module.summarize(data, "stdev", True) == pytest.approx(3.0**0.5)
+    assert module.summarize(data, "stdev", False) == pytest.approx(1.5)
